@@ -40,11 +40,26 @@ export async function POST(request: NextRequest) {
 
   const review = await prisma.customerReview.findUnique({
     where: { id: parsed.data.reviewId },
-    select: { location: { select: { userId: true } } },
+    select: {
+      rating: true,
+      reviewText: true,
+      authorName: true,
+      location: {
+        select: {
+          userId: true,
+          businessName: true,
+          keywordGroups: { select: { keywords: true } },
+        },
+      },
+    },
   })
 
   if (!review || review.location.userId !== session.user.id) {
     return NextResponse.json({ error: "Not found" }, { status: 404 })
+  }
+
+  if (!review.reviewText) {
+    return NextResponse.json({ error: "This review has no text to reply to" }, { status: 400 })
   }
 
   const isSubscribed = await hasActiveSubscription(session.user.id)
@@ -52,14 +67,21 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "subscription_required" }, { status: 402 })
   }
 
+  if (review.rating <= 2 && !session.user.email) {
+    return NextResponse.json(
+      { error: "A verified account email is required to generate a reply to this review" },
+      { status: 400 }
+    )
+  }
+
   try {
     const result = await aiReplyProvider.generateVariations({
-      reviewText: parsed.data.reviewText,
-      rating: parsed.data.rating,
-      authorName: parsed.data.authorName,
-      businessName: parsed.data.businessName,
-      keywords: parsed.data.keywords,
-      resolutionEmail: parsed.data.resolutionEmail,
+      reviewText: review.reviewText,
+      rating: review.rating,
+      authorName: review.authorName,
+      businessName: review.location.businessName,
+      keywords: review.location.keywordGroups.flatMap((group) => group.keywords),
+      resolutionEmail: session.user.email ?? undefined,
     })
 
     return NextResponse.json(result, { status: 200 })

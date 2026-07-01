@@ -8,6 +8,11 @@ export const PLAN_PRICES: Record<"starter" | "growth", number> = {
   growth: 59,
 }
 
+export const PLAN_LOCATION_LIMITS: Record<"starter" | "growth", number> = {
+  starter: 1,
+  growth: 5,
+}
+
 export const ACTIVE_SUBSCRIPTION_STATUSES = ["active", "trialing"] as const
 
 export const REPLY_VARIATION_LABELS = [

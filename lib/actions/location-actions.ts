@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma"
 import { logger } from "@/lib/logger"
 import { createLocationSchema } from "@/lib/validations/location"
 import type { CreateLocationInput } from "@/lib/validations/location"
+import { PLAN_LOCATION_LIMITS } from "@/lib/constants"
 
 export interface ActionResult {
   success: boolean
@@ -27,6 +28,19 @@ export async function createLocation(input: CreateLocationInput): Promise<Action
     const parsed = createLocationSchema.safeParse(input)
     if (!parsed.success) {
       return { success: false, error: "Invalid business location details" }
+    }
+
+    const [subscription, locationCount] = await Promise.all([
+      prisma.subscription.findUnique({ where: { userId }, select: { plan: true } }),
+      prisma.businessLocation.count({ where: { userId } }),
+    ])
+
+    const limit = PLAN_LOCATION_LIMITS[subscription?.plan ?? "starter"]
+    if (locationCount >= limit) {
+      return {
+        success: false,
+        error: `Your plan allows up to ${limit} business location${limit === 1 ? "" : "s"}. Upgrade to add more.`,
+      }
     }
 
     await prisma.businessLocation.create({

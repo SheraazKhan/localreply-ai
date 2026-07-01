@@ -3,12 +3,9 @@ import { EmptyState } from "@/components/shared/empty-state"
 
 interface ReviewListProps {
   reviews: ReviewCardData[]
-  businessName: string
-  keywords: string[]
-  resolutionEmail: string
 }
 
-export function ReviewList({ reviews, businessName, keywords, resolutionEmail }: ReviewListProps) {
+export function ReviewList({ reviews }: ReviewListProps) {
   if (reviews.length === 0) {
     return (
       <EmptyState
@@ -21,13 +18,7 @@ export function ReviewList({ reviews, businessName, keywords, resolutionEmail }:
   return (
     <div className="flex flex-col gap-3">
       {reviews.map((review) => (
-        <ReviewCard
-          key={review.id}
-          review={review}
-          businessName={businessName}
-          keywords={keywords}
-          resolutionEmail={resolutionEmail}
-        />
+        <ReviewCard key={review.id} review={review} />
       ))}
     </div>
   )

@@ -1,24 +1,8 @@
 import { z } from "zod"
 
-export const generateReplyRequestSchema = z
-  .object({
-    reviewId: z.string().cuid(),
-    reviewText: z.string().min(1).max(5000),
-    rating: z.number().int().min(1).max(5),
-    authorName: z.string().min(1).max(200),
-    businessName: z.string().min(1).max(200),
-    keywords: z.array(z.string().min(1).max(60)).max(10).default([]),
-    resolutionEmail: z.string().email().optional(),
-  })
-  .superRefine((data, ctx) => {
-    if (data.rating <= 2 && !data.resolutionEmail) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["resolutionEmail"],
-        message: "resolutionEmail is required for ratings of 2 or below",
-      })
-    }
-  })
+export const generateReplyRequestSchema = z.object({
+  reviewId: z.string().cuid(),
+})
 
 export type GenerateReplyRequest = z.infer<typeof generateReplyRequestSchema>
 

@@ -5,6 +5,7 @@ import { env } from "@/lib/env"
 import { prisma } from "@/lib/prisma"
 import { logger } from "@/lib/logger"
 import { exchangeCodeForTokens } from "@/lib/services/google-business"
+import { PLAN_LOCATION_LIMITS } from "@/lib/constants"
 
 export async function GET(request: NextRequest) {
   const session = await auth()
@@ -26,6 +27,16 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    const [subscription, locationCount] = await Promise.all([
+      prisma.subscription.findUnique({ where: { userId: session.user.id }, select: { plan: true } }),
+      prisma.businessLocation.count({ where: { userId: session.user.id } }),
+    ])
+
+    const limit = PLAN_LOCATION_LIMITS[subscription?.plan ?? "starter"]
+    if (locationCount >= limit) {
+      return NextResponse.redirect(new URL("/onboarding/connect-google?error=plan_limit_reached", request.url))
+    }
+
     const redirectUri = `${env.NEXT_PUBLIC_APP_URL}/api/google-business/callback`
     const tokens = await exchangeCodeForTokens(redirectUri, code)
 

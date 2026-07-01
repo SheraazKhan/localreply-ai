@@ -3,11 +3,17 @@ import Credentials from "next-auth/providers/credentials"
 import Google from "next-auth/providers/google"
 import { PrismaAdapter } from "@auth/prisma-adapter"
 import bcrypt from "bcryptjs"
+import { headers } from "next/headers"
 import { prisma } from "@/lib/prisma"
 import { env } from "@/lib/env"
 import { logger } from "@/lib/logger"
 import { loginSchema } from "@/lib/validations/auth"
 import { checkRateLimit, authRateLimiter } from "@/lib/services/rate-limit"
+
+async function getRequestIp(): Promise<string> {
+  const headerList = await headers()
+  return headerList.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown"
+}
 
 const GENERIC_AUTH_ERROR = "Invalid email or password"
 
@@ -26,7 +32,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       credentials: {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
-        ip: { label: "ip", type: "text" },
       },
       async authorize(credentials) {
         const parsed = loginSchema.safeParse(credentials)
@@ -35,7 +40,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         }
 
         const { email, password } = parsed.data
-        const ip = typeof credentials?.ip === "string" ? credentials.ip : "unknown"
+        const ip = await getRequestIp()
 
         const rateLimitKey = `${email.toLowerCase()}:${ip}`
         const rateLimitResult = await checkRateLimit(authRateLimiter, rateLimitKey)

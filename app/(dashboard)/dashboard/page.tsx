@@ -40,7 +40,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       ? locationParam
       : locations[0]!.id
 
-  const [location, aggregate, reviews, keywordGroups] = await Promise.all([
+  const [location, aggregate, reviews] = await Promise.all([
     prisma.businessLocation.findUnique({
       where: { id: activeLocationId },
       select: { businessName: true },
@@ -62,10 +62,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       },
       orderBy: { reviewedAt: "desc" },
     }),
-    prisma.keywordGroup.findMany({
-      where: { locationId: activeLocationId },
-      select: { keywords: true },
-    }),
   ])
 
   const publishedCount = await prisma.customerReview.count({
@@ -77,7 +73,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   })
 
   const businessName = location?.businessName ?? "Your business"
-  const allKeywords = keywordGroups.flatMap((group) => group.keywords)
 
   const reviewCardData: ReviewCardData[] = reviews.map((review) => ({
     id: review.id,
@@ -110,12 +105,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         publishedReplies={publishedCount}
       />
 
-      <ReviewList
-        reviews={reviewCardData}
-        businessName={businessName}
-        keywords={allKeywords}
-        resolutionEmail={session.user.email ?? ""}
-      />
+      <ReviewList reviews={reviewCardData} />
     </div>
   )
 }

@@ -12,12 +12,6 @@ import type { ReplyVariation } from "@/types/gemini"
 
 interface AiWorkspaceProps {
   reviewId: string
-  reviewText: string
-  rating: number
-  authorName: string
-  businessName: string
-  keywords: string[]
-  resolutionEmail: string
   onPublished: () => void
 }
 
@@ -31,16 +25,7 @@ function VariationSkeleton() {
   )
 }
 
-export function AiWorkspace({
-  reviewId,
-  reviewText,
-  rating,
-  authorName,
-  businessName,
-  keywords,
-  resolutionEmail,
-  onPublished,
-}: AiWorkspaceProps) {
+export function AiWorkspace({ reviewId, onPublished }: AiWorkspaceProps) {
   const [isGenerating, setIsGenerating] = useState(false)
   const [variations, setVariations] = useState<ReplyVariation[] | null>(null)
   const [activeTab, setActiveTab] = useState<string>(REPLY_VARIATION_LABELS[0])
@@ -57,15 +42,7 @@ export function AiWorkspace({
       const response = await fetch("/api/generate-reply", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          reviewId,
-          reviewText,
-          rating,
-          authorName,
-          businessName,
-          keywords,
-          resolutionEmail: rating <= 2 ? resolutionEmail : undefined,
-        }),
+        body: JSON.stringify({ reviewId }),
       })
 
       if (response.status === 402) {

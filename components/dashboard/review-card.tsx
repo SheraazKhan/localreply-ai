@@ -21,9 +21,6 @@ export interface ReviewCardData {
 
 interface ReviewCardProps {
   review: ReviewCardData
-  businessName: string
-  keywords: string[]
-  resolutionEmail: string
 }
 
 const STATUS_LABELS: Record<ReviewCardData["replyStatus"], string> = {
@@ -38,7 +35,7 @@ const STATUS_VARIANTS: Record<ReviewCardData["replyStatus"], "outline" | "second
   published: "default",
 }
 
-export function ReviewCard({ review, businessName, keywords, resolutionEmail }: ReviewCardProps) {
+export function ReviewCard({ review }: ReviewCardProps) {
   const router = useRouter()
   const [isExpanded, setIsExpanded] = useState(false)
   const contentRef = useRef<HTMLDivElement>(null)
@@ -93,16 +90,7 @@ export function ReviewCard({ review, businessName, keywords, resolutionEmail }: 
         }}
       >
         <div ref={contentRef} className="pt-4">
-          <AiWorkspace
-            reviewId={review.id}
-            reviewText={review.reviewText}
-            rating={review.rating}
-            authorName={review.authorName}
-            businessName={businessName}
-            keywords={keywords}
-            resolutionEmail={resolutionEmail}
-            onPublished={handlePublished}
-          />
+          <AiWorkspace reviewId={review.id} onPublished={handlePublished} />
         </div>
       </div>
     </div>
