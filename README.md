@@ -1,93 +1,73 @@
 # LocalReply AI
 
-AI-powered review reply management for local businesses. Connect Google Business Profile,
-manage local SEO keyword groups, and generate on-brand review replies with Gemini.
+AI-powered review management for local businesses. Connect a Google Business Profile, define
+local SEO keyword groups per location, and generate on-brand, context-aware replies to customer
+reviews — with tone and content automatically adapted to the review's sentiment before a human
+ever touches the draft.
 
-## Setup (all free-tier)
+## What it does
 
-1. **Neon Postgres**: create a free project at neon.tech, copy the pooled connection string into
-   `DATABASE_URL` and the direct connection string into `DIRECT_URL`.
-2. **NextAuth secret**: `npx auth secret` (or `openssl rand -base64 32`) → `NEXTAUTH_SECRET`.
-3. **Token encryption key**: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
-   → `TOKEN_ENCRYPTION_KEY` (must be exactly 64 hex characters).
-4. **Google Cloud**: new project → enable "Google Business Profile API" → OAuth consent screen
-   (External, scopes `business.manage`/`openid`/`email`/`profile`, add yourself as a Test User) →
-   OAuth Client ID (Web) → redirect URIs `http://localhost:3000/api/auth/callback/google` and
-   `http://localhost:3000/api/google-business/callback` → `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`.
-5. **Gemini API key**: aistudio.google.com/app/apikey → `GEMINI_API_KEY`. As of mid-2026, Google is
-   mid-migration to `AQ.`-prefixed authorization keys, and freshly created keys under a project
-   called "Default Gemini Project" have frequently been rejected with `401
-   ACCESS_TOKEN_TYPE_UNSUPPORTED` (a known, open issue on Google's side, not this app). If that
-   happens, create the key under a different imported project instead (e.g. "My First Project") —
-   this has resolved it in practice. The app uses `@google/genai` (the current SDK, not the
-   deprecated `@google/generative-ai`), which is required for `AQ.` keys to work at all.
-6. **Stripe (test mode)**: create "Starter" ($29/mo) and "Growth" ($59/mo) recurring Products,
-   copy the Price IDs into `STRIPE_PRICE_ID_*` / `NEXT_PUBLIC_STRIPE_PRICE_ID_*`. Run
-   `stripe listen --forward-to localhost:3000/api/webhooks/stripe` for `STRIPE_WEBHOOK_SECRET`.
-7. **Upstash Redis**: free database at console.upstash.com → REST URL/token.
-8. **Cloudflare Turnstile**: free widget for `localhost` → site key/secret key.
+- **Review dashboard** — pending review count, average rating, and a live "reply rate" completion
+  wheel per business location, with an inline workspace for drafting and publishing replies.
+- **AI reply generation** — given a review's star rating and text, generates three distinct reply
+  variations ("Professional & Direct", "Warm & Conversational", "Short & Punchy") with the tone
+  and content rules branching on sentiment:
+  - **Negative reviews (1–2★)**: empathetic, non-defensive language, no SEO keywords, no
+    discounts/refunds offered, always closes with a private resolution-contact invitation.
+  - **Neutral (3★)**: cautious, measured tone, keywords still suppressed.
+  - **Positive (4–5★)**: enthusiastic tone that naturally weaves in 1–2 configured local SEO
+    keywords without reading as keyword-stuffed.
+- **Local SEO keyword groups** — per-location categorized keyword sets that feed the AI prompt.
+- **Google Business Profile integration** — OAuth connection flow with encrypted token storage,
+  ready to sync and reply to real reviews once a project clears Google's API allowlisting.
+- **Subscription billing** — Stripe-backed Starter/Growth tiers with a two-layer paywall (edge
+  auth gate + server-side subscription-status gate) and a self-serve billing portal.
+- **Auth** — email/password and Google OAuth, with rate-limited sign-in, anti-enumeration
+  password reset, and CAPTCHA-protected signup.
 
-Copy `.env.example` to `.env.local` and fill in all values.
+## Tech stack
 
-## Database migrations
+| Layer | Choice |
+|---|---|
+| Framework | Next.js (App Router), TypeScript (strict, no `any`) |
+| UI | Tailwind CSS, shadcn/ui, Lucide icons |
+| Database | PostgreSQL (Neon, serverless) via Prisma ORM |
+| Auth | Auth.js (NextAuth) — Credentials + Google OAuth |
+| AI | Google Gemini (`@google/genai`), structured JSON output via response schemas |
+| Billing | Stripe Checkout, Billing Portal, and webhooks |
+| Rate limiting | Upstash Redis (sliding window) |
+| Bot protection | Cloudflare Turnstile |
+| Validation | Zod at every API/server-action boundary |
 
-```bash
-npx prisma migrate dev --name init
-npx prisma migrate dev --create-only --name add_rating_check
-```
+## Architecture notes
 
-Prisma cannot express a CHECK constraint in schema syntax. After generating the `add_rating_check`
-migration, hand-edit the generated `migration.sql` to add:
+- **Server/client boundary**: pages and layouts are server components by default; interactivity
+  (the AI workspace, tabs, forms) is isolated to a small set of client components. Data fetching
+  happens in server components, server actions, and route handlers — never via client-side
+  `useEffect` fetches.
+- **AI provider abstraction**: the reply-generation route depends on an `AiReplyProvider`
+  interface, not the concrete Gemini client — swapping providers is a one-line change.
+- **Structured output, defensively parsed**: Gemini is asked for JSON via a response schema, the
+  result is `zod`-validated, and a single corrective retry is attempted before failing with a
+  typed, client-safe error.
+- **Stripe sync via webhooks**: `checkout.session.completed`, `invoice.payment_succeeded`,
+  `customer.subscription.updated`, and `customer.subscription.deleted` all upsert (not update) the
+  subscription row keyed by user ID, closing the race where a webhook can arrive before any other
+  write creates it.
+- **Motion design**: animations follow a small, deliberate set of duration/easing tokens
+  (transform/opacity only, scaled to surface size) rather than ad hoc transitions, with a global
+  `prefers-reduced-motion` fallback.
 
-```sql
-ALTER TABLE "customer_reviews" ADD CONSTRAINT "rating_range_check" CHECK ("rating" >= 1 AND "rating" <= 5);
-```
+## Security
 
-Then run `npx prisma migrate dev` again to apply it, and seed demo data:
-
-```bash
-npx prisma db seed
-```
-
-This creates a demo user (`demo@localreply.ai` / `Demo1234!`) with an active subscription, one
-business location, two keyword groups, and eight reviews spanning all ratings/statuses.
-
-## Running locally
-
-```bash
-npm run dev
-```
-
-In a second terminal, run `stripe listen --forward-to localhost:3000/api/webhooks/stripe` whenever
-testing billing flows.
-
-## Security model notes
-
-- All Prisma queries run from trusted server code (route handlers, server actions, server
-  components) — the browser never talks to Postgres directly, so there is no client-exposed
-  database role to lock down with row-level security. The equivalent risk is IDOR through our own
-  API/action layer, which is why every query touching `BusinessLocation`/`KeywordGroup`/
-  `CustomerReview` filters by `location.userId === session.user.id` as the first check in every
-  function body — see `lib/actions/*.ts` and `app/api/reviews/**`.
-- OAuth tokens for Google Business Profile are encrypted with AES-256-GCM (`lib/encryption.ts`)
-  before being written to the database and are only decrypted in memory immediately before an
-  outbound Google API call.
-- Rate limiting (`lib/services/rate-limit.ts`, Upstash sliding window) protects credentials
-  sign-in/signup (5/10min by email+IP), `/api/generate-reply` (10/min by user), and
-  `/api/google-business/sync` (5/min by user).
-- `lib/logger.ts` redacts secrets/tokens before logging; API routes never return
-  `passwordHash`/`encryptedAccessToken`/`encryptedRefreshToken`/`stripeCustomerId` to the client.
-
-## What is stubbed
-
-- `lib/services/google-business.ts` implements the OAuth token exchange and encryption pipeline
-  end-to-end, but `syncReviews` returns an empty array — the Business Profile "Reviews" surface
-  lives under a separate, quota-gated Google API that requires manual allowlisting per project and
-  isn't safely callable without a live, approved Google Cloud project. `postReply` similarly logs
-  rather than making a live call. Both are wired so that swapping in the real API call later is a
-  small, isolated change; the review-management UI works fully against seeded/local data in the
-  meantime.
-- Password-reset email delivery is not wired to a transactional email provider (out of scope for
-  a $0 build) — `requestPasswordReset` in `lib/actions/auth-actions.ts` implements the full
-  timing-safe, non-enumerating response behavior described in the plan, but does not actually send
-  an email.
+- Every query touching a user-owned resource (`BusinessLocation`, `KeywordGroup`,
+  `CustomerReview`) re-verifies ownership as the first check in the function body — never trusts a
+  client-supplied ID alone.
+- OAuth tokens are encrypted at rest with AES-256-GCM and only decrypted in memory immediately
+  before an outbound API call.
+- Rate limiting on auth endpoints, AI generation, and review sync; CAPTCHA on public signup;
+  generic, non-leaking error messages and anti-enumeration auth flows throughout.
+- Security headers (CSP, HSTS, X-Frame-Options, etc.) and same-origin CORS enforcement on all API
+  routes.
+- Secrets are read from a single `zod`-validated env module; API responses are explicitly shaped
+  so fields like password hashes and encrypted tokens never reach the client.
