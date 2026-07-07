@@ -18,6 +18,7 @@ export default async function LocationsPage() {
       reviewCount: true,
       averageRating: true,
       encryptedAccessToken: true,
+      isDemoConnection: true,
     },
     orderBy: { createdAt: "asc" },
   })
@@ -48,7 +49,8 @@ export default async function LocationsPage() {
             businessName: location.businessName,
             reviewCount: location.reviewCount,
             averageRating: location.averageRating,
-            isConnected: location.encryptedAccessToken !== null,
+            isConnected: location.encryptedAccessToken !== null || location.isDemoConnection,
+            isDemoConnection: location.isDemoConnection,
           }))}
         />
       )}

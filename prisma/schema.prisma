@@ -111,6 +111,7 @@ model BusinessLocation {
   googlePlaceId         String? @unique
   googleAccountId       String?
   googleLocationId      String?
+  isDemoConnection      Boolean @default(false)
   encryptedAccessToken  String? @db.Text
   encryptedRefreshToken String? @db.Text
   reviewCount           Int     @default(0)

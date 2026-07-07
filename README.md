@@ -20,8 +20,13 @@ ever touches the draft.
 - **Local SEO keyword groups** — per-location categorized keyword sets that feed the AI prompt.
 - **Google Business Profile integration** — full OAuth connection flow (account/location
   discovery, encrypted token storage with automatic refresh) plus real review sync and reply
-  posting against Google's Business Profile APIs. Note: Google gates production access to the
-  Reviews endpoints behind a manual approval process, independent of this codebase.
+  posting against Google's Business Profile APIs. Google gates production access to the Reviews
+  endpoints behind a manual approval process tied to an actual verified business, independent of
+  this codebase — so a parallel **Demo Mode** exercises the identical connect → sync → reply flow
+  against realistic sample data instead, fully clickable without any external dependency. Real and
+  demo connections share the same UI, database schema, and reply-generation logic; only the
+  network calls to Google are swapped for a local simulation, and every simulated action is
+  labeled "Demo" in the UI and logged as simulated server-side.
 - **Subscription billing** — Stripe-backed Starter/Growth tiers with a two-layer paywall (edge
   auth gate + server-side subscription-status gate) and a self-serve billing portal.
 - **Auth** — email/password and Google OAuth, with rate-limited sign-in, anti-enumeration

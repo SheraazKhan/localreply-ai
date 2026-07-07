@@ -2,11 +2,13 @@ import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { logger } from "@/lib/logger"
 import {
   listGoogleBusinessAccounts,
   listGoogleBusinessLocations,
 } from "@/lib/services/google-business"
+import { DEMO_ACCOUNT_ID, DEMO_LOCATIONS } from "@/lib/services/google-business-demo"
 import { connectGoogleLocation } from "@/lib/actions/location-actions"
 
 interface SelectableLocation {
@@ -16,7 +18,11 @@ interface SelectableLocation {
   address: string | null
 }
 
-export default async function SelectLocationPage() {
+interface SelectLocationPageProps {
+  searchParams: Promise<{ mode?: string }>
+}
+
+async function loadRealLocations(): Promise<SelectableLocation[]> {
   const cookieStore = await cookies()
   const encryptedAccessToken = cookieStore.get("gbp_pending_access")?.value
   const encryptedRefreshToken = cookieStore.get("gbp_pending_refresh")?.value ?? null
@@ -25,8 +31,8 @@ export default async function SelectLocationPage() {
     redirect("/onboarding/connect-google?error=connection_failed")
   }
 
-  const locations: SelectableLocation[] = []
   try {
+    const locations: SelectableLocation[] = []
     const accounts = await listGoogleBusinessAccounts(encryptedAccessToken, encryptedRefreshToken)
     for (const account of accounts) {
       const accountLocations = await listGoogleBusinessLocations(
@@ -43,10 +49,27 @@ export default async function SelectLocationPage() {
         }))
       )
     }
+    return locations
   } catch (error) {
     logger.error("Failed to list Google Business accounts/locations", error)
     redirect("/onboarding/connect-google?error=connection_failed")
   }
+}
+
+function loadDemoLocations(): SelectableLocation[] {
+  return DEMO_LOCATIONS.map((location) => ({
+    googleAccountId: DEMO_ACCOUNT_ID,
+    googleLocationId: location.locationId,
+    title: location.title,
+    address: location.address,
+  }))
+}
+
+export default async function SelectLocationPage({ searchParams }: SelectLocationPageProps) {
+  const { mode } = await searchParams
+  const isDemo = mode === "demo"
+
+  const locations = isDemo ? loadDemoLocations() : await loadRealLocations()
 
   if (locations.length === 0) {
     redirect("/onboarding/connect-google?error=no_locations")
@@ -55,9 +78,14 @@ export default async function SelectLocationPage() {
   return (
     <div className="mx-auto flex max-w-lg flex-col gap-6 py-12">
       <div className="text-center">
-        <h1 className="text-2xl font-semibold tracking-tight">Choose a location</h1>
+        <div className="flex items-center justify-center gap-2">
+          <h1 className="text-2xl font-semibold tracking-tight">Choose a location</h1>
+          {isDemo && <Badge variant="secondary">Demo</Badge>}
+        </div>
         <p className="mt-1 text-sm text-muted-foreground">
-          Select which Google Business Profile location to connect to LocalReply AI.
+          {isDemo
+            ? "These are sample businesses standing in for real Google Business Profile locations."
+            : "Select which Google Business Profile location to connect to LocalReply AI."}
         </p>
       </div>
       <div className="flex flex-col gap-3">
@@ -73,7 +101,8 @@ export default async function SelectLocationPage() {
                   null,
                   location.googleAccountId,
                   location.googleLocationId,
-                  location.title
+                  location.title,
+                  isDemo
                 )}
               >
                 <Button type="submit">Connect</Button>

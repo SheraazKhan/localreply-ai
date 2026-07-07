@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma"
 import { logger } from "@/lib/logger"
 import { publishReplySchema } from "@/lib/validations/reply"
 import { googleBusinessService } from "@/lib/services/google-business"
+import { simulatePostReply } from "@/lib/services/google-business-demo"
 import type { ActionResult } from "@/lib/actions/location-actions"
 
 async function requireUserId(): Promise<string> {
@@ -38,6 +39,7 @@ export async function publishReply(reviewId: string, replyText: string): Promise
             googleLocationId: true,
             encryptedAccessToken: true,
             encryptedRefreshToken: true,
+            isDemoConnection: true,
           },
         },
       },
@@ -47,7 +49,12 @@ export async function publishReply(reviewId: string, replyText: string): Promise
       return { success: false, error: "Unable to process request" }
     }
 
-    if (review.location.encryptedAccessToken && review.location.googleAccountId && review.location.googleLocationId) {
+    if (review.location.isDemoConnection) {
+      await simulatePostReply()
+      logger.info("Simulated posting reply to demo Google Business Profile", {
+        locationId: review.locationId,
+      })
+    } else if (review.location.encryptedAccessToken && review.location.googleAccountId && review.location.googleLocationId) {
       await googleBusinessService.postReply({
         locationId: review.locationId,
         googleReviewId: review.googleReviewId,

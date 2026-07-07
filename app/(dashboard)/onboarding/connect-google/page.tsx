@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
 
 interface ConnectGooglePageProps {
   searchParams: Promise<{ error?: string }>
@@ -21,20 +22,26 @@ export default async function ConnectGooglePage({ searchParams }: ConnectGoogleP
     <div className="mx-auto flex max-w-lg flex-col items-center gap-6 py-12 text-center">
       <Card className="w-full">
         <CardHeader>
-          <CardTitle>Connect Google Business Profile</CardTitle>
+          <div className="flex items-center justify-center gap-2">
+            <CardTitle>Connect Google Business Profile</CardTitle>
+            <Badge variant="secondary">Demo</Badge>
+          </div>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <p className="text-sm text-muted-foreground">
-            Connect your Google Business Profile so LocalReply AI can read your reviews and post
-            approved replies on your behalf.
+            The real Google Business Profile integration is fully built (OAuth, review sync, and
+            reply posting), but Google requires a manual approval process — tied to an actual,
+            verified business — before any app can call those APIs in production. Since this
+            project isn&apos;t attached to a real business, connecting below walks through the exact
+            same flow using realistic sample data instead of a live Google account.
           </p>
           {error && (
             <p className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-2 text-sm text-destructive">
               {ERROR_MESSAGES[error] ?? "Something went wrong, please try again"}
             </p>
           )}
-          <Button render={<Link href="/api/google-business/connect" />}>
-            Connect with Google
+          <Button render={<Link href="/onboarding/select-location?mode=demo" />}>
+            Connect a Demo Business
           </Button>
           <Button variant="outline" render={<Link href="/locations" />}>
             Skip for now

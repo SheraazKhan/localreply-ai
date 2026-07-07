@@ -9,6 +9,7 @@ import { logger } from "@/lib/logger"
 import { createLocationSchema } from "@/lib/validations/location"
 import type { CreateLocationInput } from "@/lib/validations/location"
 import { hasLocationCapacity } from "@/lib/services/subscription"
+import { seedDemoReviews } from "@/lib/services/google-business-demo"
 
 export interface ActionResult {
   success: boolean
@@ -94,40 +95,62 @@ export async function deleteAccount(): Promise<void> {
 export async function connectGoogleLocation(
   googleAccountId: string,
   googleLocationId: string,
-  businessName: string
+  businessName: string,
+  isDemo: boolean
 ): Promise<void> {
   const userId = await requireUserId()
-  const cookieStore = await cookies()
-
-  const encryptedAccessToken = cookieStore.get("gbp_pending_access")?.value
-  const encryptedRefreshToken = cookieStore.get("gbp_pending_refresh")?.value ?? null
-
-  if (!encryptedAccessToken) {
-    redirect("/onboarding/connect-google?error=connection_failed")
-  }
 
   if (!(await hasLocationCapacity(userId))) {
     redirect("/onboarding/connect-google?error=plan_limit_reached")
   }
 
-  try {
-    await prisma.businessLocation.create({
-      data: {
-        userId,
-        businessName,
-        googleAccountId,
-        googleLocationId,
-        encryptedAccessToken,
-        encryptedRefreshToken,
-      },
-    })
-  } catch (error) {
-    logger.error("Failed to connect Google Business location", error, { userId })
-    redirect("/onboarding/connect-google?error=connection_failed")
-  }
+  let locationId: string
+  if (isDemo) {
+    try {
+      const location = await prisma.businessLocation.create({
+        data: {
+          userId,
+          businessName,
+          googleAccountId,
+          googleLocationId,
+          isDemoConnection: true,
+        },
+      })
+      locationId = location.id
+    } catch (error) {
+      logger.error("Failed to connect demo Google Business location", error, { userId })
+      redirect("/onboarding/connect-google?error=connection_failed")
+    }
 
-  cookieStore.delete("gbp_pending_access")
-  cookieStore.delete("gbp_pending_refresh")
+    await seedDemoReviews(locationId)
+  } else {
+    const cookieStore = await cookies()
+    const encryptedAccessToken = cookieStore.get("gbp_pending_access")?.value
+    const encryptedRefreshToken = cookieStore.get("gbp_pending_refresh")?.value ?? null
+
+    if (!encryptedAccessToken) {
+      redirect("/onboarding/connect-google?error=connection_failed")
+    }
+
+    try {
+      await prisma.businessLocation.create({
+        data: {
+          userId,
+          businessName,
+          googleAccountId,
+          googleLocationId,
+          encryptedAccessToken,
+          encryptedRefreshToken,
+        },
+      })
+    } catch (error) {
+      logger.error("Failed to connect Google Business location", error, { userId })
+      redirect("/onboarding/connect-google?error=connection_failed")
+    }
+
+    cookieStore.delete("gbp_pending_access")
+    cookieStore.delete("gbp_pending_refresh")
+  }
 
   revalidatePath("/locations")
   redirect("/locations")

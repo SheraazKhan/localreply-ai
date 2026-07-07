@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { logger } from "@/lib/logger"
 import { googleBusinessService } from "@/lib/services/google-business"
+import { syncDemoReviews } from "@/lib/services/google-business-demo"
 import { checkRateLimit, googleSyncRateLimiter } from "@/lib/services/rate-limit"
 
 export async function POST(request: NextRequest) {
@@ -42,6 +43,7 @@ export async function POST(request: NextRequest) {
         googleLocationId: true,
         encryptedAccessToken: true,
         encryptedRefreshToken: true,
+        isDemoConnection: true,
       },
     })
 
@@ -49,7 +51,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Not found" }, { status: 404 })
     }
 
-    if (!location.encryptedAccessToken || !location.googleAccountId || !location.googleLocationId) {
+    if (!location.googleAccountId || !location.googleLocationId) {
+      return NextResponse.json({ error: "Location is not connected to Google" }, { status: 400 })
+    }
+
+    if (location.isDemoConnection) {
+      const synced = await syncDemoReviews(locationId)
+      return NextResponse.json({ synced }, { status: 200 })
+    }
+
+    if (!location.encryptedAccessToken) {
       return NextResponse.json({ error: "Location is not connected to Google" }, { status: 400 })
     }
 
