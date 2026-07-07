@@ -10,6 +10,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   invalid_request: "The connection request was invalid. Please try again.",
   state_mismatch: "We couldn't verify the connection request. Please try again.",
   connection_failed: "We couldn't connect to Google Business Profile. Please try again.",
+  plan_limit_reached: "Your plan's business location limit is already reached. Upgrade to connect another.",
+  no_locations: "We couldn't find any Business Profile locations on that Google account.",
 }
 
 export default async function ConnectGooglePage({ searchParams }: ConnectGooglePageProps) {

@@ -8,7 +8,7 @@ function isProtectedPath(pathname: string): boolean {
   return PROTECTED_MATCHERS.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   if (pathname.startsWith("/api/")) {

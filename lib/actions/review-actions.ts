@@ -34,7 +34,8 @@ export async function publishReply(reviewId: string, replyText: string): Promise
         location: {
           select: {
             userId: true,
-            googlePlaceId: true,
+            googleAccountId: true,
+            googleLocationId: true,
             encryptedAccessToken: true,
             encryptedRefreshToken: true,
           },
@@ -46,13 +47,15 @@ export async function publishReply(reviewId: string, replyText: string): Promise
       return { success: false, error: "Unable to process request" }
     }
 
-    if (review.location.encryptedAccessToken) {
+    if (review.location.encryptedAccessToken && review.location.googleAccountId && review.location.googleLocationId) {
       await googleBusinessService.postReply({
         locationId: review.locationId,
         googleReviewId: review.googleReviewId,
         replyText: parsed.data.replyText,
         encryptedAccessToken: review.location.encryptedAccessToken,
         encryptedRefreshToken: review.location.encryptedRefreshToken,
+        googleAccountId: review.location.googleAccountId,
+        googleLocationId: review.location.googleLocationId,
       })
     } else {
       logger.info("Skipping live Google post — no connected Google Business account", {

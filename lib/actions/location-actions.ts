@@ -1,5 +1,6 @@
 "use server"
 
+import { cookies } from "next/headers"
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 import { auth, signOut } from "@/lib/auth"
@@ -7,7 +8,7 @@ import { prisma } from "@/lib/prisma"
 import { logger } from "@/lib/logger"
 import { createLocationSchema } from "@/lib/validations/location"
 import type { CreateLocationInput } from "@/lib/validations/location"
-import { PLAN_LOCATION_LIMITS } from "@/lib/constants"
+import { hasLocationCapacity } from "@/lib/services/subscription"
 
 export interface ActionResult {
   success: boolean
@@ -30,16 +31,10 @@ export async function createLocation(input: CreateLocationInput): Promise<Action
       return { success: false, error: "Invalid business location details" }
     }
 
-    const [subscription, locationCount] = await Promise.all([
-      prisma.subscription.findUnique({ where: { userId }, select: { plan: true } }),
-      prisma.businessLocation.count({ where: { userId } }),
-    ])
-
-    const limit = PLAN_LOCATION_LIMITS[subscription?.plan ?? "starter"]
-    if (locationCount >= limit) {
+    if (!(await hasLocationCapacity(userId))) {
       return {
         success: false,
-        error: `Your plan allows up to ${limit} business location${limit === 1 ? "" : "s"}. Upgrade to add more.`,
+        error: "Your plan's business location limit is already reached. Upgrade to add more.",
       }
     }
 
@@ -94,4 +89,46 @@ export async function deleteAccount(): Promise<void> {
 
   await signOut({ redirect: false })
   redirect("/")
+}
+
+export async function connectGoogleLocation(
+  googleAccountId: string,
+  googleLocationId: string,
+  businessName: string
+): Promise<void> {
+  const userId = await requireUserId()
+  const cookieStore = await cookies()
+
+  const encryptedAccessToken = cookieStore.get("gbp_pending_access")?.value
+  const encryptedRefreshToken = cookieStore.get("gbp_pending_refresh")?.value ?? null
+
+  if (!encryptedAccessToken) {
+    redirect("/onboarding/connect-google?error=connection_failed")
+  }
+
+  if (!(await hasLocationCapacity(userId))) {
+    redirect("/onboarding/connect-google?error=plan_limit_reached")
+  }
+
+  try {
+    await prisma.businessLocation.create({
+      data: {
+        userId,
+        businessName,
+        googleAccountId,
+        googleLocationId,
+        encryptedAccessToken,
+        encryptedRefreshToken,
+      },
+    })
+  } catch (error) {
+    logger.error("Failed to connect Google Business location", error, { userId })
+    redirect("/onboarding/connect-google?error=connection_failed")
+  }
+
+  cookieStore.delete("gbp_pending_access")
+  cookieStore.delete("gbp_pending_refresh")
+
+  revalidatePath("/locations")
+  redirect("/locations")
 }

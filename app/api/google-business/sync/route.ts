@@ -38,7 +38,8 @@ export async function POST(request: NextRequest) {
       where: { id: locationId },
       select: {
         userId: true,
-        googlePlaceId: true,
+        googleAccountId: true,
+        googleLocationId: true,
         encryptedAccessToken: true,
         encryptedRefreshToken: true,
       },
@@ -48,14 +49,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Not found" }, { status: 404 })
     }
 
-    if (!location.encryptedAccessToken || !location.googlePlaceId) {
+    if (!location.encryptedAccessToken || !location.googleAccountId || !location.googleLocationId) {
       return NextResponse.json({ error: "Location is not connected to Google" }, { status: 400 })
     }
 
     const reviews = await googleBusinessService.syncReviews(
+      locationId,
       location.encryptedAccessToken,
       location.encryptedRefreshToken,
-      location.googlePlaceId
+      location.googleAccountId,
+      location.googleLocationId
     )
 
     return NextResponse.json({ synced: reviews.length }, { status: 200 })

@@ -109,6 +109,8 @@ model BusinessLocation {
   userId                String
   businessName          String
   googlePlaceId         String? @unique
+  googleAccountId       String?
+  googleLocationId      String?
   encryptedAccessToken  String? @db.Text
   encryptedRefreshToken String? @db.Text
   reviewCount           Int     @default(0)
@@ -121,6 +123,7 @@ model BusinessLocation {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([googleAccountId, googleLocationId])
   @@map("business_locations")
 }
 

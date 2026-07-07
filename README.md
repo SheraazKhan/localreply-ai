@@ -18,8 +18,10 @@ ever touches the draft.
   - **Positive (4–5★)**: enthusiastic tone that naturally weaves in 1–2 configured local SEO
     keywords without reading as keyword-stuffed.
 - **Local SEO keyword groups** — per-location categorized keyword sets that feed the AI prompt.
-- **Google Business Profile integration** — OAuth connection flow with encrypted token storage,
-  ready to sync and reply to real reviews once a project clears Google's API allowlisting.
+- **Google Business Profile integration** — full OAuth connection flow (account/location
+  discovery, encrypted token storage with automatic refresh) plus real review sync and reply
+  posting against Google's Business Profile APIs. Note: Google gates production access to the
+  Reviews endpoints behind a manual approval process, independent of this codebase.
 - **Subscription billing** — Stripe-backed Starter/Growth tiers with a two-layer paywall (edge
   auth gate + server-side subscription-status gate) and a self-serve billing portal.
 - **Auth** — email/password and Google OAuth, with rate-limited sign-in, anti-enumeration

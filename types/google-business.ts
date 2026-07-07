@@ -8,7 +8,8 @@ export interface GoogleBusinessReview {
 }
 
 export interface GoogleBusinessLocationInfo {
-  googlePlaceId: string
+  googleAccountId: string
+  googleLocationId: string
   businessName: string
 }
 
